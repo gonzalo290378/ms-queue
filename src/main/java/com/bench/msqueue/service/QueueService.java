@@ -2,7 +2,7 @@ package com.bench.msqueue.service;
 
 import com.bench.msqueue.dto.ECheckDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import model.Account;
+import com.bench.msqueue.model.Account;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.Payload;
 
