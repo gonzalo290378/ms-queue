@@ -2,11 +2,11 @@ package com.bench.msqueue.service.impl;
 
 import com.bench.msqueue.dto.ECheckDTO;
 import com.bench.msqueue.enums.PaymentState;
+import com.bench.msqueue.model.Account;
 import com.bench.msqueue.service.QueueService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import com.bench.msqueue.model.Account;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageProperties;
@@ -19,6 +19,8 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -58,15 +60,19 @@ public class QueueServiceImpl implements QueueService {
         if (!eCheckDTO.getPaymentDate().isEqual(now())) {
             eCheckDTO.setState(PaymentState.PROCESSED_BY_QUEUE);
             save(eCheckDTO);
-        } else jobEcheck();
+        }
     }
 
 
     @Transactional(readOnly = true)
     public void jobEcheck() {
-        ResponseEntity<List<ECheckDTO>> eCheckDTO = restTemplate
+        HttpHeaders headers = new HttpHeaders();
+        String accessToken = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest().getHeader("Authorization");
+        headers.set(HttpHeaders.AUTHORIZATION, accessToken);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ResponseEntity<ECheckDTO[]> eCheckDTO = restTemplate
                 .exchange("http://localhost:8090/ms-payments/api/v1/payments/findProcessedByQueue", HttpMethod.GET,
-                        null, new ParameterizedTypeReference<>() {
+                        entity, new ParameterizedTypeReference<>() {
                         });
         for (ECheckDTO eCheckTransfer : eCheckDTO.getBody()) {
             Optional<Account> accountSender = getAccount(eCheckTransfer.getAccountNumberSender());
@@ -89,30 +95,35 @@ public class QueueServiceImpl implements QueueService {
     }
 
     private ResponseEntity<Account> save(Account account) {
+        HttpHeaders headers = new HttpHeaders();
+        String accessToken = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest().getHeader("Authorization");
+        headers.set(HttpHeaders.AUTHORIZATION, accessToken);
+        HttpEntity<Account> entity = new HttpEntity<>(account, headers);
         HashMap<String, Long> uriPathVariable = new HashMap<>();
         Long id = account.getAccountNumber();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Account> entity = new HttpEntity<>(account, headers);
         uriPathVariable.put("id", id);
         return restTemplate.exchange("http://localhost:8090/ms-accounts/api/v1/accounts/{id}", HttpMethod.PUT, entity, Account.class, uriPathVariable);
     }
 
     public Optional<Account> getAccount(Long id) {
+        HttpHeaders headers = new HttpHeaders();
+        String accessToken = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest().getHeader("Authorization");
+        headers.set(HttpHeaders.AUTHORIZATION, accessToken);
+        HttpEntity<Account> entity = new HttpEntity<>(headers);
         HashMap<String, Long> uriPathVariable = new HashMap<>();
         uriPathVariable.put("id", id);
         return Optional.ofNullable(restTemplate.
-                getForObject("http://localhost:8090/ms-accounts/api/v1/accounts/{id}",
-                        Account.class, uriPathVariable));
+                exchange("http://localhost:8090/ms-accounts/api/v1/accounts/{id}",
+                        HttpMethod.GET, entity, Account.class, uriPathVariable).getBody());
     }
 
     public ResponseEntity<ECheckDTO> save(ECheckDTO eCheckDTO) {
-        HashMap<String, Long> uriPathVariable = new HashMap<>();
-        Long id = eCheckDTO.getId();
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        String accessToken = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest().getHeader("Authorization");
+        headers.set(HttpHeaders.AUTHORIZATION, accessToken);
+        HashMap<String, Long> uriPathVariable = new HashMap<>();
         HttpEntity<ECheckDTO> entity = new HttpEntity<>(eCheckDTO, headers);
-        uriPathVariable.put("id", id);
+        uriPathVariable.put("id", eCheckDTO.getId());
         return restTemplate.exchange("http://localhost:8090/ms-payments/api/v1/payments/{id}", HttpMethod.PUT, entity, ECheckDTO.class, uriPathVariable);
     }
 

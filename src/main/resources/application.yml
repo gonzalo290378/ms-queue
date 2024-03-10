@@ -1,0 +1,23 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: "http://127.0.0.1:9000"
+      client:
+        registration:
+          frontend-app:
+            provider: spring
+            client-id: frontend-app
+            client-secret: 12345
+            authorization-grant-type: authorization_code
+            redirect-uri: "http://127.0.0.1:9000/authorized"
+            scope:
+              - openid
+              - profile
+              - read
+              - write
+            client-name: frontend-app
+        provider:
+          spring:
+            issuer-uri: "http://127.0.0.1:9000"
